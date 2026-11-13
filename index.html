@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#000000">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="apple-mobile-web-app-title" content="Digi Manager">
+<title>Digi Manager — Digi Nepal</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<!-- PIN LOCK -->
+<div id="lock" class="lock">
+  <div class="lock-box">
+    <div class="logo">D</div>
+    <h1>Digi <span>Manager</span></h1>
+    <p id="lock-msg">Enter your PIN</p>
+    <div class="pin-dots" id="pin-dots"><i></i><i></i><i></i><i></i></div>
+    <div class="pin-pad" id="pin-pad">
+      <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+      <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+      <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+      <button data-k="c" class="small">Clear</button><button data-k="0">0</button><button data-k="b" class="small">⌫</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="hidden">
+  <header>
+    <div class="brand"><span class="dmark">D</span> Digi <b>Manager</b></div>
+    <button id="btn-settings" class="icon-btn" aria-label="Settings">⚙️</button>
+  </header>
+
+  <main>
+    <!-- HOME -->
+    <section id="view-home" class="view">
+      <h2 class="alert-title">⏰ Expiring Soon</h2>
+      <div id="expiring-list"></div>
+      <h2>Overview</h2>
+      <div class="stats" id="stats"></div>
+      <div class="tip">Tap ⚙️ Settings to back up your data (Export) — your records live only on this phone.</div>
+    </section>
+
+    <!-- ACCOUNTS -->
+    <section id="view-accounts" class="view hidden">
+      <div class="row"><h2>Accounts I Buy</h2><button class="add-btn" data-add="account">+ Add</button></div>
+      <input class="search" id="search-accounts" placeholder="Search service, email, supplier…">
+      <div id="accounts-list"></div>
+    </section>
+
+    <!-- EMAILS -->
+    <section id="view-emails" class="view hidden">
+      <div class="row"><h2>Emails</h2><button class="add-btn" data-add="email">+ Add</button></div>
+      <div class="chips" id="email-filter">
+        <button class="chip on" data-f="All">All</button>
+        <button class="chip" data-f="Gmail">Gmail</button>
+        <button class="chip" data-f="Outlook">Outlook</button>
+      </div>
+      <input class="search" id="search-emails" placeholder="Search email or use…">
+      <div id="emails-list"></div>
+    </section>
+
+    <!-- CUSTOMERS -->
+    <section id="view-customers" class="view hidden">
+      <div class="row"><h2>Customers</h2><button class="add-btn" data-add="customer">+ Add</button></div>
+      <input class="search" id="search-customers" placeholder="Search name, service, WhatsApp…">
+      <div id="customers-list"></div>
+    </section>
+
+    <!-- MONEY -->
+    <section id="view-money" class="view hidden">
+      <h2>Money</h2>
+      <div class="stats" id="money-stats"></div>
+      <div class="row"><h3>Sales</h3><button class="add-btn" data-add="sale">+ Add Sale</button></div>
+      <div id="sales-list"></div>
+      <div class="row"><h3>Spends</h3><button class="add-btn" data-add="spend">+ Add Spend</button></div>
+      <div id="spends-list"></div>
+      <h3>Profit by Product (this month)</h3>
+      <div id="profit-list"></div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="view-settings" class="view hidden">
+      <div class="row"><h2>Settings</h2><button class="add-btn ghost" id="btn-back">← Back</button></div>
+      <div class="card">
+        <h3>🔐 PIN Lock</h3>
+        <p>Your PIN locks this app on this phone.</p>
+        <button class="wide-btn" id="btn-changepin">Change PIN</button>
+      </div>
+      <div class="card">
+        <h3>💾 Backup</h3>
+        <p>All data is saved only on this phone (local storage). Export a backup before changing phones, and import it on the new phone.</p>
+        <button class="wide-btn" id="btn-export">⬇ Export Backup (JSON)</button>
+        <label class="wide-btn file-label">⬆ Import Backup<input type="file" id="file-import" accept=".json,application/json" hidden></label>
+      </div>
+      <div class="card">
+        <h3>📲 Install on Home Screen</h3>
+        <p><b>Android (Chrome):</b> tap ⋮ menu → “Add to Home screen” / “Install app”.<br><b>iPhone (Safari):</b> tap Share → “Add to Home Screen”.<br>Then Digi Manager opens like a normal app, even offline.</p>
+      </div>
+      <div class="card danger">
+        <h3>Erase everything</h3>
+        <p>Deletes all records and the PIN from this phone. Export a backup first.</p>
+        <button class="wide-btn red" id="btn-erase">Erase All Data</button>
+      </div>
+    </section>
+  </main>
+
+  <nav id="tabbar">
+    <button data-tab="home" class="on"><span>🏠</span>Home</button>
+    <button data-tab="accounts"><span>🔑</span>Accounts</button>
+    <button data-tab="emails"><span>✉️</span>Emails</button>
+    <button data-tab="customers"><span>👥</span>Customers</button>
+    <button data-tab="money"><span>💰</span>Money</button>
+  </nav>
+</div>
+
+<!-- FORM SHEET -->
+<div id="sheet-wrap" class="hidden">
+  <div class="sheet">
+    <div class="row"><h2 id="sheet-title">Add</h2><button class="icon-btn" id="sheet-close">✕</button></div>
+    <form id="sheet-form"></form>
+  </div>
+</div>
+
+<div id="toast" class="hidden"></div>
+<script src="app.js"></script>
+</body>
+</html>
