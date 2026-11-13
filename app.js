@@ -122,6 +122,17 @@ function renderSlots() {
          '<div class="meta">Profiles: <b>' + used + ' used</b> of ' + total + '</div></div>';
    }).join('');
 }
+function slotTag(a) {
+   var total = parseInt(a.slots, 10) || 0;
+   if (!total) return '';
+   var free = total - profilesOf(a.id).length;
+   return free > 0 ? ' · ✅ ' + free + ' free' : ' · 🔴 FULLY PACKED';
+}
+function svcMatch(accountService, chosen) {
+   var A = (accountService || '').toLowerCase(), B = (chosen || '').toLowerCase();
+   if (!A || !B) return true;
+   return B.indexOf(A) === 0 || A.indexOf(B) === 0;
+}
 
 /* ---------- PIN lock ---------- */
 var pinBuf = '', pinStage = 'enter', pinFirst = '';
@@ -482,6 +493,32 @@ function openSheet(kind, id) {
       if (s && s.price > 0) amtInput.value = s.price;
     });
   }
+   if (kind === 'customer') {
+      var acctSel = form.querySelector('[name="accountId"]');
+      if (acctSel && svcInput) {
+         var note = document.createElement('div');
+         note.className = 'acct-note';
+         acctSel.parentNode.appendChild(note);
+         var refreshNote = function () {
+            var a = DB.accounts.find(function (x) { return x.id === acctSel.value; });
+            if (!a) { note.textContent = ''; note.className = 'acct-note'; return; }
+            var total = parseInt(a.slots, 10) || 0, used = profilesOf(a.id).length, free = Math.max(0, total - used);
+            note.textContent = !total ? '' : (free > 0 ? '✅ ' + free + ' of ' + total + ' profiles free on this account' : '🔴 This account is FULLY PACKED — no free profile');
+            note.className = 'acct-note' + (total && free === 0 ? ' warn' : '');
+         };
+         var refreshAccts = function () {
+            var chosen = svcInput.value, cur = acctSel.value;
+            var opts = [{ value: '', label: '— No account linked —' }];
+            DB.accounts.forEach(function (a) { if (svcMatch(a.service, chosen)) opts.push({ value: a.id, label: a.service + ' — ' + a.login + slotTag(a) }); });
+            if (cur && !opts.some(function (o) { return o.value === cur; })) { var ca = DB.accounts.find(function (a) { return a.id === cur; }); if (ca) opts.push({ value: ca.id, label: ca.service + ' — ' + ca.login + slotTag(ca) }); }
+            acctSel.innerHTML = opts.map(function (o) { return '<option value="' + esc(o.value) + '"' + (o.value === cur ? ' selected' : '') + '>' + esc(o.label) + '</option>'; }).join('');
+            refreshNote();
+         };
+         acctSel.addEventListener('change', refreshNote);
+         svcInput.addEventListener('change', refreshAccts);
+         refreshAccts();
+      }
+   }
   var delBtn = $('sheet-delete');
   if (delBtn) delBtn.addEventListener('click', function () { closeSheet(); deleteRecord(sheetKind, sheetId); });
   $('sheet-wrap').classList.remove('hidden');
