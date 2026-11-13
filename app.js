@@ -93,6 +93,35 @@ function pwHtml(kind, id, pw) {
 }
 function accountLabel(a) { return a.service + ' — ' + a.login + (a.profile ? ' (' + a.profile + ')' : ''); }
 function assignedCount(accountId) { return DB.customers.filter(function (c) { return c.accountId === accountId; }).length; }
+function profilesOf(accountId) {
+   var seen = {}, out = [];
+   DB.customers.forEach(function (c) {
+      if (c.accountId !=== accountId) return;
+      var p = (c.profile || '').trim();
+      if (!p) return;
+      var k = p.toLowerCase();
+      if (!seen[k]) { seen[k] = 1; out.push(p); }
+   });
+   return out;
+}
+function renderSlots() {
+   var el = $('slots-board'); if (!el) return;
+   if (!DB.accounts.length) { el.innerHTML = '<div class="empty">No accounts yet.</div>'; return; }
+   el.innerHTML = DB.accounts.map(function (a) {
+      var total = parseInt(a.slots, 10) || 0;
+      var profs = profilesOf(a.id);
+      var used = profs.length, free = Math.max(0, total - used);
+      var status = total === 0 ? '' : (free === 0 ? '<b style="color:var(--red)">FULLY PACKED</b>' : '<b style="color:var(--green)">' + free + ' remaining</b>');
+      var boxes = '';
+      for (var i = 0; i < total; i++) {
+         boxes += i < used ? '<span class="slot filled">' + esc(profs[i]) + '</span>' : '<span class="slot free">Free</span>';
+      }
+      for (var j = total; j < used; j++) boxes += '<span class="slot filled">' + esc(profs[j]) + '</span>';
+      return '<div class="card"><div class="top"><div><div class="svc">' + esc(a.service) + '</div><div class="sub">' + esc(a.login) + '</div></div><div>' + status + '</div></div>' +
+           '<div class="slots">' + boxes + '</div>' +
+         '<div class="meta">Profiles: <b>' + used + ' used</b> of ' + total + '</div></div>';
+   }).join('');
+}
 
 /* ---------- PIN lock ---------- */
 var pinBuf = '', pinStage = 'enter', pinFirst = '';
@@ -192,6 +221,7 @@ function renderHome() {
     { n: num(incomeM - spendM), l: 'Profit This Month', c: incomeM - spendM >= 0 ? 'green' : 'red' }
   ];
   $('stats').innerHTML = stats.map(function (s) { return '<div class="stat"><div class="num ' + s.c + '">' + s.n + '</div><div class="lbl">' + s.l + '</div></div>'; }).join('');
+   renderSlots();
 }
 function waNum(raw) {
   var d = String(raw || '').replace(/\D/g, '');
@@ -208,13 +238,13 @@ function renderAccounts() {
   if (!list.length) { $('accounts-list').innerHTML = '<div class="empty">' + (DB.accounts.length ? 'No match found.' : 'No accounts yet.<br>Tap + Add to save the first account you bought.') + '</div>'; return; }
   $('accounts-list').innerHTML = list.map(function (a) {
     var dl = daysLeft(a.expiry);
-    var used = assignedCount(a.id), total = parseInt(a.slots, 10) || 0;
+    var used = profilesOf(a.id).length, total = parseInt(a.slots, 10) || 0;
     return '<div class="card ' + leftClass(dl) + '"><div class="top"><div><div class="svc">' + esc(a.service) + '</div><div class="sub">' + esc(a.login) + '</div></div>' + badge(dl) + '</div>' +
       '<div class="meta">Password: ' + pwHtml('a', a.id, a.password) + '<br>' +
       (a.profile ? 'Profile / PIN: <b>' + esc(a.profile) + '</b><br>' : '') +
       'Bought: <b>' + fmtDate(a.purchase) + '</b> · Expires: <b>' + fmtDate(a.expiry) + '</b><br>' +
       'Cost: <b>' + num(a.cost) + '</b>' + (a.supplier ? ' · Supplier: <b>' + esc(a.supplier) + '</b>' : '') + '<br>' +
-      'Slots: <b>' + used + ' used / ' + Math.max(0, total - used) + ' free</b> of ' + total + '</div>' +
+      'Profiles: <b>' + used + ' used / ' + Math.max(0, total - used) + ' free</b> of ' + total + '</div>' +
       '<div class="actions"><button class="mini-btn" data-edit="account:' + a.id + '">✏️ Edit</button><button class="mini-btn del" data-del="account:' + a.id + '">Delete</button></div></div>';
   }).join('');
 }
