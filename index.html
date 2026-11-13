@@ -32,6 +32,21 @@
   </div>
 </div>
 
+<!-- CLOUD SIGN-IN -->
+<div id="auth" class="lock hidden">
+  <div class="lock-box">
+    <div class="logo">D</div>
+    <h1>Digi <span>Manager</span></h1>
+    <p>Sign in to sync your records to your cloud database — then Muse can add records for you directly, and your data is backed up.</p>
+    <input id="auth-email" class="auth-input" type="email" placeholder="Your email" autocomplete="email">
+    <input id="auth-pass" class="auth-input" type="password" placeholder="Password (6+ characters)" autocomplete="current-password">
+    <p id="auth-msg" class="auth-msg"></p>
+    <button id="btn-signin" class="wide-btn">Sign In</button>
+    <button id="btn-signup" class="wide-btn ghost">Create Account</button>
+    <button id="btn-auth-skip" class="auth-skip">Continue without account (this phone only)</button>
+  </div>
+</div>
+
 <!-- APP -->
 <div id="app" class="hidden">
   <header>
@@ -96,6 +111,13 @@
         <button class="wide-btn" id="btn-changepin">Change PIN</button>
       </div>
       <div class="card">
+        <h3>☁️ Cloud Sync</h3>
+        <p id="sync-status">Not signed in. Sign in to back up your records to your cloud database and let Muse add records for you directly.</p>
+        <button class="wide-btn hidden" id="btn-sync-now">↻ Sync Now</button>
+        <button class="wide-btn hidden" id="btn-signin-settings">Sign In / Create Account</button>
+        <button class="wide-btn ghost hidden" id="btn-signout">Sign Out</button>
+      </div>
+      <div class="card">
         <h3>💾 Backup</h3>
         <p>All data is saved only on this phone (local storage). Export a backup before changing phones, and import it on the new phone.</p>
         <button class="wide-btn" id="btn-export">⬇ Export Backup (JSON)</button>
@@ -131,6 +153,7 @@
 </div>
 
 <div id="toast" class="hidden"></div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

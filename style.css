@@ -95,3 +95,11 @@ main{padding:4px 14px 20px;max-width:640px;margin:0 auto}
 
 #toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);background:#fff;color:#000;font-weight:700;font-size:14px;padding:11px 20px;border-radius:999px;z-index:120;box-shadow:0 4px 20px rgba(0,0,0,.5)}
 @media(min-width:520px){.stats{grid-template-columns:repeat(3,1fr)}}
+
+/* cloud sign-in */
+.auth-input{display:block;width:100%;box-sizing:border-box;margin:8px 0;padding:13px 14px;border-radius:12px;border:1px solid #333;background:#141414;color:#fff;font-size:16px}
+.auth-input:focus{outline:none;border-color:#e02424}
+.auth-msg{min-height:20px;color:#ffb020;font-size:14px;margin:6px 0}
+.auth-skip{display:block;margin:14px auto 0;background:none;border:none;color:#999;font-size:14px;text-decoration:underline;cursor:pointer}
+#auth{z-index:60}
+.wide-btn.ghost{background:transparent;border:1px solid #444;color:#fff}

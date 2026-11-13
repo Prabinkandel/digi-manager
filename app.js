@@ -1,6 +1,17 @@
 'use strict';
-/* Digi Manager — Digi Nepal. All data lives in localStorage on this device. */
+/* Digi Manager — Digi Nepal. Data lives in localStorage on this device and,
+   when signed in, syncs to the user's own Supabase cloud database. */
 var LS_KEY = 'digiManagerV1';
+
+/* ---------- cloud config ---------- */
+var SUPABASE_URL = 'https://ysbeddnvxsunkvibiggu.supabase.co';
+var SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InlzYmVkZG52eHN1bmt2aWJpZ2d1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTQ1MzE4ODUsImV4cCI6MjExMDEwNzg4NX0.My8n9lCrsWNR1rQ2mdDOyDVZcASXYU-d9_X1g1VOw2E';
+var sb = null, cloudUser = null, pushTimer = null, lastPullAt = 0;
+try {
+  if (window.supabase && SUPABASE_URL.indexOf('YOUR-PROJECT') === -1) {
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  }
+} catch (e) { sb = null; }
 
 var SERVICES = [
   { name: 'Netflix 4K', price: 350 },
@@ -34,7 +45,7 @@ function load() {
   } catch (e) { return blankData(); }
 }
 var DB = load();
-function save() { localStorage.setItem(LS_KEY, JSON.stringify(DB)); }
+function save() { localStorage.setItem(LS_KEY, JSON.stringify(DB)); schedulePush(); }
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
 function hashPin(pin) { var h = 5381; for (var i = 0; i < pin.length; i++) { h = ((h << 5) + h + pin.charCodeAt(i)) >>> 0; } return 'h' + h.toString(36); }
 
@@ -96,7 +107,7 @@ function initLock() {
   else { pinStage = 'enter'; pinMsg('Enter your PIN'); }
   pinBuf = ''; pinFirst = ''; drawDots();
 }
-function unlock() { $('lock').classList.add('hidden'); $('app').classList.remove('hidden'); renderAll(); }
+function unlock() { $('lock').classList.add('hidden'); $('app').classList.remove('hidden'); renderAll(); afterUnlock(); }
 function pinDone(pin) {
   if (pinStage === 'set1') { pinFirst = pin; pinStage = 'set2'; pinMsg('Enter the PIN again to confirm'); }
   else if (pinStage === 'set2') {
@@ -490,7 +501,92 @@ $('sheet-form').addEventListener('submit', function (e) {
   save(); closeSheet(); renderAll(); toast('Saved ✓');
 });
 
+/* ---------- cloud sync (Supabase) ---------- */
+function setSyncStatus(msg) {
+  var el = $('sync-status'); if (el) el.textContent = msg;
+  var signed = !!cloudUser;
+  var bSync = $('btn-sync-now'), bIn = $('btn-signin-settings'), bOut = $('btn-signout');
+  if (bSync) bSync.classList.toggle('hidden', !signed);
+  if (bOut) bOut.classList.toggle('hidden', !signed);
+  if (bIn) bIn.classList.toggle('hidden', signed);
+}
+function cloudPayload() { var c = JSON.parse(JSON.stringify(DB)); delete c.pinHash; return c; }
+function applyCloudData(d) {
+  var pin = DB.pinHash;
+  var b = blankData(); b.pinHash = pin;
+  ['accounts', 'emails', 'customers', 'sales', 'spends'].forEach(function (k) { if (Array.isArray(d && d[k])) b[k] = d[k]; });
+  DB = b;
+  localStorage.setItem(LS_KEY, JSON.stringify(DB));
+  renderAll();
+}
+function pushCloud() {
+  pushTimer = null;
+  if (!sb || !cloudUser) return;
+  sb.from('digi_data').upsert({ user_id: cloudUser.id, data: cloudPayload(), updated_at: new Date().toISOString() })
+    .then(function (res) { setSyncStatus(res.error ? 'Sync error — will retry on next change.' : 'Signed in: ' + (cloudUser.email || '') + ' · Synced ✓'); })
+    .catch(function () { setSyncStatus('Offline — changes saved on this phone, will sync later.'); });
+}
+function schedulePush() {
+  if (!sb || !cloudUser) return;
+  clearTimeout(pushTimer);
+  pushTimer = setTimeout(pushCloud, 900);
+}
+function pullCloud() {
+  if (!sb || !cloudUser) return Promise.resolve(false);
+  lastPullAt = Date.now();
+  return sb.from('digi_data').select('data').eq('user_id', cloudUser.id).maybeSingle()
+    .then(function (res) {
+      if (res.error) { setSyncStatus('Sync error — showing this phone\u2019s data.'); return false; }
+      if (!res.data) { pushCloud(); return false; } /* first sign-in: seed cloud with this phone's data */
+      applyCloudData(res.data.data);
+      setSyncStatus('Signed in: ' + (cloudUser.email || '') + ' · Synced ✓');
+      return true;
+    })
+    .catch(function () { setSyncStatus('Offline — showing this phone\u2019s data.'); return false; });
+}
+function afterUnlock() {
+  refreshSyncUIOnly();
+  if (!sb) return;
+  sb.auth.getSession().then(function (r) {
+    var s = r.data && r.data.session;
+    if (s && s.user) { cloudUser = s.user; setSyncStatus('Signed in: ' + (s.user.email || '') + ' · Syncing…'); pullCloud(); }
+    else { setSyncStatus('Not signed in. Sign in to back up your records to your cloud database and let Muse add records for you directly.'); $('auth').classList.remove('hidden'); }
+  }).catch(function () {});
+}
+function refreshSyncUIOnly() { setSyncStatus(cloudUser ? 'Signed in: ' + (cloudUser.email || '') : 'Not signed in. Sign in to back up your records to your cloud database and let Muse add records for you directly.'); }
+function doAuth(signup) {
+  if (!sb) { $('auth-msg').textContent = 'Cloud is not configured yet.'; return; }
+  var email = $('auth-email').value.trim(), pw = $('auth-pass').value;
+  if (!email || pw.length < 6) { $('auth-msg').textContent = 'Enter your email and a password of 6+ characters.'; return; }
+  $('auth-msg').textContent = signup ? 'Creating your account…' : 'Signing in…';
+  var p = signup ? sb.auth.signUp({ email: email, password: pw }) : sb.auth.signInWithPassword({ email: email, password: pw });
+  p.then(function (r) {
+    if (r.error) { $('auth-msg').textContent = r.error.message; return; }
+    var user = r.data && (r.data.user || (r.data.session && r.data.session.user));
+    if (user && r.data.session) {
+      cloudUser = user;
+      $('auth').classList.add('hidden');
+      toast('Cloud sync on ✓');
+      if (signup) { pushCloud(); setSyncStatus('Signed in: ' + email + ' · Synced ✓'); } else pullCloud();
+    } else {
+      $('auth-msg').textContent = 'Account created — please check your email, tap the confirm link, then Sign In here.';
+    }
+  }).catch(function () { $('auth-msg').textContent = 'Network error — try again.'; });
+}
+$('btn-signin').addEventListener('click', function () { doAuth(false); });
+$('btn-signup').addEventListener('click', function () { doAuth(true); });
+$('btn-auth-skip').addEventListener('click', function () { $('auth').classList.add('hidden'); toast('Phone-only for now — sign in anytime from Settings ⚙️'); });
+document.addEventListener('visibilitychange', function () {
+  if (document.visibilityState === 'visible' && sb && cloudUser && !pushTimer && Date.now() - lastPullAt > 30000) pullCloud();
+});
+
 /* ---------- settings ---------- */
+$('btn-sync-now').addEventListener('click', function () { pullCloud().then(function () { toast('Synced ✓'); }); });
+$('btn-signin-settings').addEventListener('click', function () { $('auth').classList.remove('hidden'); });
+$('btn-signout').addEventListener('click', function () {
+  if (!sb) return;
+  sb.auth.signOut().then(function () { cloudUser = null; setSyncStatus('Signed out — your records stay on this phone.'); toast('Signed out'); });
+});
 $('btn-changepin').addEventListener('click', function () {
   pinStage = 'chg-verify'; pinBuf = ''; pinFirst = '';
   pinMsg('Enter your CURRENT PIN');
