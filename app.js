@@ -94,44 +94,44 @@ function pwHtml(kind, id, pw) {
 function accountLabel(a) { return a.service + ' — ' + a.login + (a.profile ? ' (' + a.profile + ')' : ''); }
 function assignedCount(accountId) { return DB.customers.filter(function (c) { return c.accountId === accountId; }).length; }
 function profilesOf(accountId) {
-   var seen = {}, out = [];
-   DB.customers.forEach(function (c) {
-      if (c.accountId !=== accountId) return;
-      var p = (c.profile || '').trim();
-      if (!p) return;
-      var k = p.toLowerCase();
-      if (!seen[k]) { seen[k] = 1; out.push(p); }
-   });
-   return out;
+  var seen = {}, out = [];
+  DB.customers.forEach(function (c) {
+    if (c.accountId !== accountId) return;
+    var p = (c.profile || '').trim();
+    if (!p) return;
+    var k = p.toLowerCase();
+    if (!seen[k]) { seen[k] = 1; out.push(p); }
+  });
+  return out;
 }
 function renderSlots() {
-   var el = $('slots-board'); if (!el) return;
-   if (!DB.accounts.length) { el.innerHTML = '<div class="empty">No accounts yet.</div>'; return; }
-   el.innerHTML = DB.accounts.map(function (a) {
-      var total = parseInt(a.slots, 10) || 0;
-      var profs = profilesOf(a.id);
-      var used = profs.length, free = Math.max(0, total - used);
-      var status = total === 0 ? '' : (free === 0 ? '<b style="color:var(--red)">FULLY PACKED</b>' : '<b style="color:var(--green)">' + free + ' remaining</b>');
-      var boxes = '';
-      for (var i = 0; i < total; i++) {
-         boxes += i < used ? '<span class="slot filled">' + esc(profs[i]) + '</span>' : '<span class="slot free">Free</span>';
-      }
-      for (var j = total; j < used; j++) boxes += '<span class="slot filled">' + esc(profs[j]) + '</span>';
-      return '<div class="card"><div class="top"><div><div class="svc">' + esc(a.service) + '</div><div class="sub">' + esc(a.login) + '</div></div><div>' + status + '</div></div>' +
-           '<div class="slots">' + boxes + '</div>' +
-         '<div class="meta">Profiles: <b>' + used + ' used</b> of ' + total + '</div></div>';
-   }).join('');
+  var el = $('slots-board'); if (!el) return;
+  if (!DB.accounts.length) { el.innerHTML = '<div class="empty">No accounts yet.</div>'; return; }
+  el.innerHTML = DB.accounts.map(function (a) {
+    var total = parseInt(a.slots, 10) || 0;
+    var profs = profilesOf(a.id);
+    var used = profs.length, free = Math.max(0, total - used);
+    var status = total === 0 ? '' : (free === 0 ? '<b style="color:var(--red)">FULLY PACKED</b>' : '<b style="color:var(--green)">' + free + ' remaining</b>');
+    var boxes = '';
+    for (var i = 0; i < total; i++) {
+      boxes += i < used ? '<span class="slot filled">' + esc(profs[i]) + '</span>' : '<span class="slot free">Free</span>';
+    }
+    for (var j = total; j < used; j++) boxes += '<span class="slot filled">' + esc(profs[j]) + '</span>';
+    return '<div class="card"><div class="top"><div><div class="svc">' + esc(a.service) + '</div><div class="sub">' + esc(a.login) + '</div></div><div>' + status + '</div></div>' +
+      '<div class="slots">' + boxes + '</div>' +
+      '<div class="meta">Profiles: <b>' + used + ' used</b> of ' + total + '</div></div>';
+  }).join('');
 }
 function slotTag(a) {
-   var total = parseInt(a.slots, 10) || 0;
-   if (!total) return '';
-   var free = total - profilesOf(a.id).length;
-   return free > 0 ? ' · ✅ ' + free + ' free' : ' · 🔴 FULLY PACKED';
+  var total = parseInt(a.slots, 10) || 0;
+  if (!total) return '';
+  var free = total - profilesOf(a.id).length;
+  return free > 0 ? ' · ✅ ' + free + ' free' : ' · 🔴 FULLY PACKED';
 }
 function svcMatch(accountService, chosen) {
-   var A = (accountService || '').toLowerCase(), B = (chosen || '').toLowerCase();
-   if (!A || !B) return true;
-   return B.indexOf(A) === 0 || A.indexOf(B) === 0;
+  var A = (accountService || '').toLowerCase(), B = (chosen || '').toLowerCase();
+  if (!A || !B) return true;
+  return B.indexOf(A) === 0 || A.indexOf(B) === 0;
 }
 
 /* ---------- PIN lock ---------- */
@@ -232,7 +232,7 @@ function renderHome() {
     { n: num(incomeM - spendM), l: 'Profit This Month', c: incomeM - spendM >= 0 ? 'green' : 'red' }
   ];
   $('stats').innerHTML = stats.map(function (s) { return '<div class="stat"><div class="num ' + s.c + '">' + s.n + '</div><div class="lbl">' + s.l + '</div></div>'; }).join('');
-   renderSlots();
+  renderSlots();
 }
 function waNum(raw) {
   var d = String(raw || '').replace(/\D/g, '');
@@ -493,32 +493,32 @@ function openSheet(kind, id) {
       if (s && s.price > 0) amtInput.value = s.price;
     });
   }
-   if (kind === 'customer') {
-      var acctSel = form.querySelector('[name="accountId"]');
-      if (acctSel && svcInput) {
-         var note = document.createElement('div');
-         note.className = 'acct-note';
-         acctSel.parentNode.appendChild(note);
-         var refreshNote = function () {
-            var a = DB.accounts.find(function (x) { return x.id === acctSel.value; });
-            if (!a) { note.textContent = ''; note.className = 'acct-note'; return; }
-            var total = parseInt(a.slots, 10) || 0, used = profilesOf(a.id).length, free = Math.max(0, total - used);
-            note.textContent = !total ? '' : (free > 0 ? '✅ ' + free + ' of ' + total + ' profiles free on this account' : '🔴 This account is FULLY PACKED — no free profile');
-            note.className = 'acct-note' + (total && free === 0 ? ' warn' : '');
-         };
-         var refreshAccts = function () {
-            var chosen = svcInput.value, cur = acctSel.value;
-            var opts = [{ value: '', label: '— No account linked —' }];
-            DB.accounts.forEach(function (a) { if (svcMatch(a.service, chosen)) opts.push({ value: a.id, label: a.service + ' — ' + a.login + slotTag(a) }); });
-            if (cur && !opts.some(function (o) { return o.value === cur; })) { var ca = DB.accounts.find(function (a) { return a.id === cur; }); if (ca) opts.push({ value: ca.id, label: ca.service + ' — ' + ca.login + slotTag(ca) }); }
-            acctSel.innerHTML = opts.map(function (o) { return '<option value="' + esc(o.value) + '"' + (o.value === cur ? ' selected' : '') + '>' + esc(o.label) + '</option>'; }).join('');
-            refreshNote();
-         };
-         acctSel.addEventListener('change', refreshNote);
-         svcInput.addEventListener('change', refreshAccts);
-         refreshAccts();
-      }
-   }
+  if (kind === 'customer') {
+    var acctSel = form.querySelector('[name="accountId"]');
+    if (acctSel && svcInput) {
+      var note = document.createElement('div');
+      note.className = 'acct-note';
+      acctSel.parentNode.appendChild(note);
+      var refreshNote = function () {
+        var a = DB.accounts.find(function (x) { return x.id === acctSel.value; });
+        if (!a) { note.textContent = ''; note.className = 'acct-note'; return; }
+        var total = parseInt(a.slots, 10) || 0, used = profilesOf(a.id).length, free = Math.max(0, total - used);
+        note.textContent = !total ? '' : (free > 0 ? '✅ ' + free + ' of ' + total + ' profiles free on this account' : '🔴 This account is FULLY PACKED — no free profile');
+        note.className = 'acct-note' + (total && free === 0 ? ' warn' : '');
+      };
+      var refreshAccts = function () {
+        var chosen = svcInput.value, cur = acctSel.value;
+        var opts = [{ value: '', label: '— No account linked —' }];
+        DB.accounts.forEach(function (a) { if (svcMatch(a.service, chosen)) opts.push({ value: a.id, label: a.service + ' — ' + a.login + slotTag(a) }); });
+        if (cur && !opts.some(function (o) { return o.value === cur; })) { var ca = DB.accounts.find(function (a) { return a.id === cur; }); if (ca) opts.push({ value: ca.id, label: ca.service + ' — ' + ca.login + slotTag(ca) }); }
+        acctSel.innerHTML = opts.map(function (o) { return '<option value="' + esc(o.value) + '"' + (o.value === cur ? ' selected' : '') + '>' + esc(o.label) + '</option>'; }).join('');
+        refreshNote();
+      };
+      acctSel.addEventListener('change', refreshNote);
+      svcInput.addEventListener('change', refreshAccts);
+      refreshAccts();
+    }
+  }
   var delBtn = $('sheet-delete');
   if (delBtn) delBtn.addEventListener('click', function () { closeSheet(); deleteRecord(sheetKind, sheetId); });
   $('sheet-wrap').classList.remove('hidden');
