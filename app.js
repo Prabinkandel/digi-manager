@@ -58,6 +58,9 @@ function parseDate(s) { if (!s) return null; var p = s.split('-'); if (p.length 
 function daysLeft(s) { var d = parseDate(s); if (!d) return null; return Math.round((d - today()) / 86400000); }
 function todayStr() { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 function plusDays(s, n) { var d = parseDate(s) || today(); d.setDate(d.getDate() + n); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function addMonths(s, n) { var d = parseDate(s) || today(); var day = d.getDate(); d.setDate(1); d.setMonth(d.getMonth() + n); var last = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate(); d.setDate(Math.min(day, last)); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+function planMonths(plan) { var p = String(plan || '').toLowerCase(); var m = p.match(/(\d+)\s*(year|yr)/); if (m) return parseInt(m[1], 10) * 12; m = p.match(/(\d+)\s*(month|mo)/); if (m) return parseInt(m[1], 10); return 1; }
+function extendBase(c) { var dl = daysLeft(c.end); return (dl !== null && dl >= 0) ? c.end : todayStr(); }
 var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 function fmtDate(s) { var d = parseDate(s); if (!d) return '—'; return d.getDate() + ' ' + MONTHS[d.getMonth()] + ' ' + d.getFullYear(); }
 function inMonth(s) { var d = parseDate(s); if (!d) return false; var t = new Date(); return d.getFullYear() === t.getFullYear() && d.getMonth() === t.getMonth(); }
@@ -199,7 +202,7 @@ function renderHome() {
   var items = [];
   DB.customers.forEach(function (c) {
     var dl = daysLeft(c.end);
-    if (dl !== null && dl <= 7) items.push({ kind: 'Customer', name: c.name, svc: c.service, end: c.end, dl: dl, wa: c.whatsapp, plan: c.plan });
+    if (dl !== null && dl <= 7) items.push({ kind: 'Customer', name: c.name, svc: c.service, end: c.end, dl: dl, wa: c.whatsapp, plan: c.plan, cid: c.id });
   });
   DB.accounts.forEach(function (a) {
     var dl = daysLeft(a.expiry);
@@ -210,12 +213,17 @@ function renderHome() {
     $('expiring-list').innerHTML = '<div class="empty">✅ Nothing expiring in the next 7 days</div>';
   } else {
     $('expiring-list').innerHTML = items.map(function (it) {
-      var waBtn = '';
-      if (it.kind === 'Customer' && it.wa) {
-        var msg = encodeURIComponent('Namaste ' + it.name + ', your ' + it.svc + (it.plan ? ' (' + it.plan + ')' : '') + ' from Digi Nepal expires on ' + fmtDate(it.end) + '. Please renew in time so your service does not stop. Thank you! — Digi Nepal');
-        waBtn = '<div class="actions"><a class="mini-btn wa" style="text-decoration:none;color:#fff" href="https://wa.me/' + waNum(it.wa) + '?text=' + msg + '" target="_blank" rel="noopener">💬 WhatsApp Renewal</a></div>';
+      var acts = '';
+      if (it.kind === 'Customer') {
+        var inner = '';
+        if (it.wa) {
+          var msg = encodeURIComponent('Namaste ' + it.name + ', your ' + it.svc + (it.plan ? ' (' + it.plan + ')' : '') + ' from Digi Nepal expires on ' + fmtDate(it.end) + '. Please renew in time so your service does not stop. Thank you! — Digi Nepal');
+          inner += '<a class="mini-btn wa" style="text-decoration:none;color:#fff" href="https://wa.me/' + waNum(it.wa) + '?text=' + msg + '" target="_blank" rel="noopener">💬 WhatsApp Renewal</a>';
+        }
+        inner += '<button class="mini-btn ext" data-extend="' + it.cid + '">⏳ Extend</button>';
+        acts = '<div class="actions">' + inner + '</div>';
       }
-      return '<div class="card ' + leftClass(it.dl) + '"><div class="top"><div><div class="svc">' + esc(it.name) + '</div><div class="sub">' + it.kind + ' · ' + esc(it.svc) + '</div></div>' + badge(it.dl) + '</div><div class="meta">Ends: <b>' + fmtDate(it.end) + '</b></div>' + waBtn + '</div>';
+      return '<div class="card ' + leftClass(it.dl) + '"><div class="top"><div><div class="svc">' + esc(it.name) + '</div><div class="sub">' + it.kind + ' · ' + esc(it.svc) + '</div></div>' + badge(it.dl) + '</div><div class="meta">Ends: <b>' + fmtDate(it.end) + '</b></div>' + acts + '</div>';
     }).join('');
   }
   var active = DB.customers.filter(function (c) { var d = daysLeft(c.end); return d !== null && d >= 0; }).length;
@@ -310,7 +318,7 @@ function renderCustomers() {
       (c.profile && acct ? 'Profile: <b>' + esc(c.profile) + '</b><br>' : '') +
       'Start: <b>' + fmtDate(c.start) + '</b> · End: <b>' + fmtDate(c.end) + '</b><br>' +
       'Paid: <b>' + num(c.amount) + '</b>' + (c.payment ? ' · ' + esc(c.payment) : '') + '</div>' +
-      '<div class="actions">' + waBtn + '<button class="mini-btn" data-edit="customer:' + c.id + '">✏️ Edit</button><button class="mini-btn del" data-del="customer:' + c.id + '">Delete</button></div></div>';
+      '<div class="actions">' + waBtn + '<button class="mini-btn ext" data-extend="' + c.id + '">⏳ Extend</button><button class="mini-btn" data-edit="customer:' + c.id + '">✏️ Edit</button><button class="mini-btn del" data-del="customer:' + c.id + '">Delete</button></div></div>';
   }).join('');
 }
 
@@ -364,6 +372,8 @@ function renderAll() { renderHome(); renderAccounts(); renderEmails(); renderCus
 document.addEventListener('click', function (e) {
   var rv = e.target.closest('[data-reveal]');
   if (rv) { var key = rv.getAttribute('data-reveal'); revealed[key] = !revealed[key]; renderAll(); return; }
+  var ex = e.target.closest('[data-extend]');
+  if (ex) { openSheet('extend', ex.getAttribute('data-extend')); return; }
   var ed = e.target.closest('[data-edit]');
   if (ed) { var p1 = ed.getAttribute('data-edit').split(':'); openSheet(p1[0], p1[1]); return; }
   var del = e.target.closest('[data-del]');
@@ -416,7 +426,7 @@ function formHtml(fields) {
     else { out += fieldHtml(fields[i]); i += 1; }
   }
   out += '<button type="submit" class="save">Save</button>';
-  if (sheetId) out += '<button type="button" class="del" id="sheet-delete">Delete this record</button>';
+  if (sheetId && sheetKind !== 'extend') out += '<button type="button" class="del" id="sheet-delete">Delete this record</button>';
   return out;
 }
 function getRec(kind, id) {
@@ -425,9 +435,9 @@ function getRec(kind, id) {
 }
 function openSheet(kind, id) {
   sheetKind = kind; sheetId = id;
-  var r = id ? getRec(kind, id) : {};
-  var titles = { account: 'Account', email: 'Email', customer: 'Customer', sale: 'Sale', spend: 'Spend' };
-  $('sheet-title').textContent = (id ? 'Edit ' : 'Add ') + titles[kind];
+  var r = id ? getRec(kind === 'extend' ? 'customer' : kind, id) : {};
+  var titles = { account: 'Account', email: 'Email', customer: 'Customer', sale: 'Sale', spend: 'Spend', extend: 'Subscription' };
+  $('sheet-title').textContent = kind === 'extend' ? 'Extend Subscription' : (id ? 'Edit ' : 'Add ') + titles[kind];
   var fields = [];
   if (kind === 'account') {
     fields = [
@@ -463,6 +473,13 @@ function openSheet(kind, id) {
       { name: 'amount', label: 'Amount paid (Rs)', type: 'number', value: r.amount != null ? r.amount : 350, half: true },
       { name: 'payment', label: 'Payment', type: 'select', options: PAYMENTS, value: r.payment || 'eSewa', half: true }
     ];
+  } else if (kind === 'extend') {
+    var rate0 = (parseFloat(r.amount) || 0) / planMonths(r.plan);
+    fields = [
+      { name: 'months', label: 'Extend by', type: 'select', options: [{ value: '1', label: '1 Month' }, { value: '2', label: '2 Months' }, { value: '3', label: '3 Months' }, { value: '6', label: '6 Months' }, { value: '12', label: '12 Months' }], value: '1' },
+      { name: 'amount', label: 'Amount received (Rs)', type: 'number', value: Math.round(rate0) || '', half: true },
+      { name: 'payment', label: 'Payment', type: 'select', options: PAYMENTS, value: r.payment || 'eSewa', half: true }
+    ];
   } else if (kind === 'sale') {
     fields = [
       { name: 'date', label: 'Date', type: 'date', value: r.date || todayStr() },
@@ -492,6 +509,22 @@ function openSheet(kind, id) {
       var s = SERVICES.find(function (x) { return x.name === svcInput.value; });
       if (s && s.price > 0) amtInput.value = s.price;
     });
+  }
+  if (kind === 'extend') {
+    var custE = getRec('customer', id);
+    var noteE = document.createElement('div');
+    noteE.className = 'acct-note';
+    form.insertBefore(noteE, form.firstChild);
+    var mSel = form.querySelector('[name="months"]');
+    var aInp = form.querySelector('[name="amount"]');
+    var rateE = (parseFloat(custE.amount) || 0) / planMonths(custE.plan);
+    var refreshExt = function () {
+      var m = parseInt(mSel.value, 10) || 1;
+      noteE.textContent = '👤 ' + custE.name + ' · ' + custE.service + ' — ends ' + fmtDate(custE.end) + ' → new end: ' + fmtDate(addMonths(extendBase(custE), m));
+      aInp.value = Math.round(rateE * m) || '';
+    };
+    mSel.addEventListener('change', refreshExt);
+    refreshExt();
   }
   if (kind === 'customer') {
     var acctSel = form.querySelector('[name="accountId"]');
@@ -533,6 +566,7 @@ $('sheet-form').addEventListener('submit', function (e) {
   function g(n) { var v = fd.get(n); return v == null ? '' : String(v).trim(); }
   function gn(n) { var v = parseFloat(g(n)); return isNaN(v) ? 0 : v; }
   var kind = sheetKind, id = sheetId;
+  var doneMsg = 'Saved ✓';
   if (kind === 'account') {
     var recA = { id: id || uid(), service: g('service'), login: g('login'), password: g('password'), profile: g('profile'), purchase: g('purchase'), expiry: g('expiry'), cost: gn('cost'), supplier: g('supplier'), slots: parseInt(g('slots'), 10) || 0 };
     if (id) {
@@ -556,6 +590,16 @@ $('sheet-form').addEventListener('submit', function (e) {
       DB.customers.push(recC);
       if (recC.amount > 0) DB.sales.push({ id: uid(), date: recC.start || todayStr(), customer: recC.name, product: recC.service, plan: recC.plan, amount: recC.amount, payment: recC.payment, autoFrom: recC.id });
     }
+  } else if (kind === 'extend') {
+    var custX = getRec('customer', id);
+    if (custX && custX.id) {
+      var monthsX = parseInt(g('months'), 10) || 1;
+      var newEndX = addMonths(extendBase(custX), monthsX);
+      DB.customers = DB.customers.map(function (x) { if (x.id === id) { x.end = newEndX; } return x; });
+      var amtX = gn('amount');
+      if (amtX > 0) DB.sales.push({ id: uid(), date: todayStr(), customer: custX.name, product: custX.service, plan: monthsX + (monthsX === 1 ? ' Month' : ' Months') + ' renewal', amount: amtX, payment: g('payment'), autoFrom: id + ':ext:' + uid() });
+      doneMsg = 'Extended to ' + fmtDate(newEndX) + ' ✓';
+    }
   } else if (kind === 'sale') {
     var recS = { id: id || uid(), date: g('date'), customer: g('customer'), product: g('product'), plan: g('plan'), amount: gn('amount'), payment: g('payment') };
     if (id) { var old = getRec('sale', id); if (old.autoFrom) recS.autoFrom = old.autoFrom; DB.sales = DB.sales.map(function (x) { return x.id === id ? recS : x; }); }
@@ -565,7 +609,7 @@ $('sheet-form').addEventListener('submit', function (e) {
     if (id) { var oldX = getRec('spend', id); if (oldX.autoFrom) recX.autoFrom = oldX.autoFrom; DB.spends = DB.spends.map(function (x) { return x.id === id ? recX : x; }); }
     else DB.spends.push(recX);
   }
-  save(); closeSheet(); renderAll(); toast('Saved ✓');
+  save(); closeSheet(); renderAll(); toast(doneMsg);
 });
 
 /* ---------- cloud sync (Supabase) ---------- */
