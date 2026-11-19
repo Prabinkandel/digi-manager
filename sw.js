@@ -1,6 +1,6 @@
 'use strict';
 /* Digi Manager service worker — caches the app shell for offline use. */
-var CACHE = 'digi-manager-v7';
+var CACHE = 'digi-manager-v8';
 var ASSETS = [
   './',
   './index.html',

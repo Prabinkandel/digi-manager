@@ -243,6 +243,30 @@ function renderHome() {
   ];
   $('stats').innerHTML = stats.map(function (s) { return '<div class="stat"><div class="num ' + s.c + '">' + s.n + '</div><div class="lbl">' + s.l + '</div></div>'; }).join('');
   renderSlots();
+  renderNetflixQuota();
+}
+function renderNetflixQuota() {
+  var el = $('netflix-quota'); if (!el) return;
+  var nfs = DB.accounts.filter(function (a) { return (a.service || '').toLowerCase().indexOf('netflix') >= 0; });
+  if (!nfs.length) { el.innerHTML = '<div class="empty">No Netflix accounts yet.</div>'; return; }
+  var totFree = 0;
+  var rows = nfs.map(function (a) {
+    var total = parseInt(a.slots, 10) || 0;
+    var profs = profilesOf(a.id);
+    var used = profs.length;
+    var free = Math.max(0, total - used);
+    totFree += free;
+    var segs = '';
+    for (var i = 0; i < total; i++) segs += '<span class="qseg ' + (i < used ? 'used' : 'free') + '"></span>';
+    for (var j = total; j < used; j++) segs += '<span class="qseg used"></span>';
+    return '<div class="qrow"><div class="qtop"><span class="qlogin">' + esc(a.login) + '</span><span>' + (free > 0 ? '<b style="color:var(--green)">' + free + ' left</b>' : '<b style="color:var(--red)">FULL</b>') + '</span></div>' +
+      '<div class="qbar">' + segs + '</div>' +
+      '<div class="sub">' + used + ' of ' + total + ' profiles used' + (profs.length ? ' · ' + profs.map(function (p) { return esc(p); }).join(', ') : '') + '</div></div>';
+  }).join('');
+  var head = totFree > 0
+    ? '<div class="qbig"><span class="qcount">' + totFree + '</span><span class="qlabel">Netflix profile' + (totFree === 1 ? '' : 's') + ' remaining</span></div>'
+    : '<div class="qbig"><span class="qcount" style="color:var(--red)">0</span><span class="qlabel">remaining — all Netflix profiles full</span></div>';
+  el.innerHTML = '<div class="card quota">' + head + rows + '</div>';
 }
 function waNum(raw) {
   var d = String(raw || '').replace(/\D/g, '');
