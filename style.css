@@ -124,3 +124,16 @@ main{padding:4px 14px 20px;max-width:640px;margin:0 auto}
 
 .acct-note{font-size:12px;margin-top:6px;color:var(--green)}
 .acct-note.warn{color:var(--red);font-weight:700}
+.card.clickable{cursor:pointer}
+.dhint{margin-top:8px;font-size:12.5px;color:var(--mut);font-weight:600}
+.detail-box{border:1px solid var(--line);border-radius:12px;padding:4px 12px;margin-bottom:6px;background:var(--card)}
+.drow{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);font-size:13.5px}
+.drow:last-child{border-bottom:none}
+.drow span{color:var(--mut)}
+.drow b{text-align:right;word-break:break-all}
+.dhead{font-size:15px;margin:14px 0 8px}
+.dprof{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;background:var(--card)}
+.dprof.free{opacity:.65;border-style:dashed}
+.dprof-name{font-weight:700;margin-bottom:2px}
+.dprof-cust{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:6px 0;border-top:1px solid var(--line)}
+.dprof-cust .sub{color:var(--mut);font-size:12.5px;margin-top:2px}

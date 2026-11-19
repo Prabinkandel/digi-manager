@@ -310,14 +310,55 @@ function renderAccounts() {
   $('accounts-list').innerHTML = list.map(function (a) {
     var dl = daysLeft(a.expiry);
     var used = profilesOf(a.id).length, total = parseInt(a.slots, 10) || 0;
-    return '<div class="card ' + leftClass(dl) + '"><div class="top"><div><div class="svc">' + esc(a.service) + '</div><div class="sub">' + esc(a.login) + '</div></div>' + badge(dl) + '</div>' +
+    return '<div class="card clickable ' + leftClass(dl) + '" data-acct="' + a.id + '"><div class="top"><div><div class="svc">' + esc(a.service) + '</div><div class="sub">' + esc(a.login) + '</div></div>' + badge(dl) + '</div>' +
       '<div class="meta">Password: ' + pwHtml('a', a.id, a.password) + '<br>' +
       (a.profile ? 'Profile / PIN: <b>' + esc(a.profile) + '</b><br>' : '') +
       'Bought: <b>' + fmtDate(a.purchase) + '</b> · Expires: <b>' + fmtDate(a.expiry) + '</b><br>' +
       'Cost: <b>' + num(a.cost) + '</b>' + (a.supplier ? ' · Supplier: <b>' + esc(a.supplier) + '</b>' : '') + '<br>' +
       'Profiles: <b>' + used + ' used / ' + Math.max(0, total - used) + ' free</b> of ' + total + '</div>' +
+      '<div class="dhint">👁 Tap card for account &amp; profile details ›</div>' +
       '<div class="actions"><button class="mini-btn" data-edit="account:' + a.id + '">✏️ Edit</button><button class="mini-btn del" data-del="account:' + a.id + '">Delete</button></div></div>';
   }).join('');
+}
+
+/* ---------- account detail (tap a card) ---------- */
+function openAccountDetail(id) {
+  var a = DB.accounts.find(function (x) { return x.id === id; });
+  if (!a) return;
+  sheetKind = 'detail'; sheetId = id;
+  $('sheet-title').textContent = a.service + ' — Details';
+  var dl = daysLeft(a.expiry);
+  var total = parseInt(a.slots, 10) || 0;
+  var profs = profilesOf(a.id);
+  var used = profs.length, free = Math.max(0, total - used);
+  function row(k, v) { return '<div class="drow"><span>' + k + '</span><b>' + v + '</b></div>'; }
+  var rows = row('Service', esc(a.service)) +
+    row('Login', esc(a.login)) +
+    row('Password', a.password ? 'Saved (hidden)' : 'No password saved') +
+    (a.profile ? row('Profile / PIN', esc(a.profile)) : '') +
+    row('Bought', fmtDate(a.purchase)) +
+    row('Expires', fmtDate(a.expiry) + (dl === null ? '' : dl < 0 ? ' · ' + Math.abs(dl) + ' days ago' : ' · ' + dl + ' days left')) +
+    row('Cost', num(a.cost)) +
+    (a.supplier ? row('Supplier', esc(a.supplier)) : '') +
+    row('Profiles', used + ' used / ' + free + ' free of ' + total);
+  var custs = DB.customers.filter(function (c) { return c.accountId === a.id; });
+  function custLine(c) {
+    var st = c.cancelled ? '<span class="badge canc">Cancelled</span>' : badge(daysLeft(c.end));
+    return '<div class="dprof-cust"><div><b>' + esc(c.name) + '</b>' + (c.whatsapp ? ' · ' + esc(c.whatsapp) : '') + '<div class="sub">' + esc(c.plan || '') + ' · Ends ' + fmtDate(c.end) + ' · ' + num(c.amount) + '</div></div>' + st + '</div>';
+  }
+  var profHtml = profs.map(function (p) {
+    var cs = custs.filter(function (c) { return (c.profile || '').trim().toLowerCase() === p.toLowerCase(); }).map(custLine).join('');
+    return '<div class="dprof"><div class="dprof-name">👤 ' + esc(p) + '</div>' + cs + '</div>';
+  }).join('');
+  var noProf = custs.filter(function (c) { return !(c.profile || '').trim(); });
+  if (noProf.length) profHtml += '<div class="dprof"><div class="dprof-name">👤 No profile name</div>' + noProf.map(custLine).join('') + '</div>';
+  for (var i = 0; i < free; i++) profHtml += '<div class="dprof free"><div class="dprof-name">➕ Free slot</div><div class="sub">Available for a new customer</div></div>';
+  $('sheet-form').innerHTML = '<div class="detail-box">' + rows + '</div>' +
+    '<h3 class="dhead">Profiles (' + used + ' of ' + total + ')</h3>' +
+    (profHtml || '<div class="empty">No customers on this account yet.</div>') +
+    '<button type="button" class="add-btn" id="detail-edit" style="width:100%;margin-top:6px">✏️ Edit this account</button>';
+  $('sheet-wrap').classList.remove('hidden');
+  $('detail-edit').addEventListener('click', function () { openSheet('account', a.id); });
 }
 
 /* ---------- rendering: emails ---------- */
@@ -447,6 +488,8 @@ document.addEventListener('click', function (e) {
   if (ed) { var p1 = ed.getAttribute('data-edit').split(':'); openSheet(p1[0], p1[1]); return; }
   var del = e.target.closest('[data-del]');
   if (del) { var p2 = del.getAttribute('data-del').split(':'); deleteRecord(p2[0], p2[1]); return; }
+  var ac = e.target.closest('[data-acct]');
+  if (ac && !e.target.closest('button')) { openAccountDetail(ac.getAttribute('data-acct')); return; }
   var add = e.target.closest('[data-add]');
   if (add) { openSheet(add.getAttribute('data-add'), null); return; }
 });
