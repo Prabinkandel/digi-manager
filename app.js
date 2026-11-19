@@ -95,11 +95,11 @@ function pwHtml(kind, id, pw) {
   return '<span class="pw">••••••••</span> <button type="button" class="reveal" data-reveal="' + kind + ':' + id + '">Show</button>';
 }
 function accountLabel(a) { return a.service + ' — ' + a.login + (a.profile ? ' (' + a.profile + ')' : ''); }
-function assignedCount(accountId) { return DB.customers.filter(function (c) { return c.accountId === accountId; }).length; }
+function assignedCount(accountId) { return DB.customers.filter(function (c) { return c.accountId === accountId && !c.cancelled; }).length; }
 function profilesOf(accountId) {
   var seen = {}, out = [];
   DB.customers.forEach(function (c) {
-    if (c.accountId !== accountId) return;
+    if (c.accountId !== accountId || c.cancelled) return;
     var p = (c.profile || '').trim();
     if (!p) return;
     var k = p.toLowerCase();
@@ -201,6 +201,7 @@ $('btn-back').addEventListener('click', function () { show('home'); });
 function renderHome() {
   var items = [];
   DB.customers.forEach(function (c) {
+    if (c.cancelled) return;
     var dl = daysLeft(c.end);
     if (dl !== null && dl <= 7) items.push({ kind: 'Customer', name: c.name, svc: c.service, end: c.end, dl: dl, wa: c.whatsapp, plan: c.plan, cid: c.id });
   });
@@ -221,13 +222,14 @@ function renderHome() {
           inner += '<a class="mini-btn wa" style="text-decoration:none;color:#fff" href="https://wa.me/' + waNum(it.wa) + '?text=' + msg + '" target="_blank" rel="noopener">💬 WhatsApp Renewal</a>';
         }
         inner += '<button class="mini-btn ext" data-extend="' + it.cid + '">⏳ Extend</button>';
+        if (it.dl < 0) inner += '<button class="mini-btn canc" data-cancel="' + it.cid + '">🚫 Cancel</button>';
         acts = '<div class="actions">' + inner + '</div>';
       }
       return '<div class="card ' + leftClass(it.dl) + '"><div class="top"><div><div class="svc">' + esc(it.name) + '</div><div class="sub">' + it.kind + ' · ' + esc(it.svc) + '</div></div>' + badge(it.dl) + '</div><div class="meta">Ends: <b>' + fmtDate(it.end) + '</b></div>' + acts + '</div>';
     }).join('');
   }
-  var active = DB.customers.filter(function (c) { var d = daysLeft(c.end); return d !== null && d >= 0; }).length;
-  var expired = DB.customers.filter(function (c) { var d = daysLeft(c.end); return d !== null && d < 0; }).length;
+  var active = DB.customers.filter(function (c) { var d = daysLeft(c.end); return !c.cancelled && d !== null && d >= 0; }).length;
+  var expired = DB.customers.filter(function (c) { var d = daysLeft(c.end); return !c.cancelled && d !== null && d < 0; }).length;
   var freeSlots = DB.accounts.reduce(function (sum, a) { return sum + Math.max(0, (parseInt(a.slots, 10) || 0) - assignedCount(a.id)); }, 0);
   var incomeM = DB.sales.filter(function (s) { return inMonth(s.date); }).reduce(function (s, x) { return s + (parseFloat(x.amount) || 0); }, 0);
   var spendM = DB.spends.filter(function (s) { return inMonth(s.date); }).reduce(function (s, x) { return s + (parseFloat(x.amount) || 0); }, 0);
@@ -296,6 +298,7 @@ function renderEmails() {
 function renderCustomers() {
   var q = ($('search-customers').value || '').toLowerCase();
   var list = DB.customers.slice().sort(function (a, b) {
+    if (!!a.cancelled !== !!b.cancelled) return a.cancelled ? 1 : -1;
     var da = daysLeft(a.end), db = daysLeft(b.end);
     return (da === null ? 9999 : da) - (db === null ? 9999 : db);
   }).filter(function (c) {
@@ -307,10 +310,22 @@ function renderCustomers() {
     var acct = DB.accounts.find(function (a) { return a.id === c.accountId; });
     var acctTxt = acct ? accountLabel(acct) : (c.profile || '');
     var waBtn = '';
-    if (c.whatsapp) {
+    if (c.whatsapp && !c.cancelled) {
       var msg = encodeURIComponent('Namaste ' + c.name + ', your ' + c.service + (c.plan ? ' (' + c.plan + ')' : '') + ' from Digi Nepal expires on ' + fmtDate(c.end) + '. Please renew in time so your service does not stop. Thank you! — Digi Nepal');
       waBtn = '<a class="mini-btn wa" style="text-decoration:none;color:#fff" href="https://wa.me/' + waNum(c.whatsapp) + '?text=' + msg + '" target="_blank" rel="noopener">💬 Renewal</a>';
     }
+    if (c.cancelled) {
+      return '<div class="card cancelled"><div class="top"><div><div class="svc">' + esc(c.name) + '</div><div class="sub">' + esc(c.service) + (c.plan ? ' · ' + esc(c.plan) : '') + '</div></div><span class="badge canc">Cancelled</span></div>' +
+        '<div class="meta">' +
+        (c.whatsapp ? 'WhatsApp: <b>' + esc(c.whatsapp) + '</b><br>' : '') +
+        (acctTxt ? 'Account: <b>' + esc(acctTxt) + '</b><br>' : '') +
+        (c.profile && acct ? 'Profile: <b>' + esc(c.profile) + '</b><br>' : '') +
+        'Start: <b>' + fmtDate(c.start) + '</b> · End: <b>' + fmtDate(c.end) + '</b><br>' +
+        'Paid: <b>' + num(c.amount) + '</b>' + (c.payment ? ' · ' + esc(c.payment) : '') +
+        (c.cancelledOn ? '<br>Cancelled on: <b>' + fmtDate(c.cancelledOn) + '</b> · profile slot freed' : '') + '</div>' +
+        '<div class="actions"><button class="mini-btn ext" data-reactivate="' + c.id + '">↩ Reactivate</button><button class="mini-btn" data-edit="customer:' + c.id + '">✏️ Edit</button><button class="mini-btn del" data-del="customer:' + c.id + '">Delete</button></div></div>';
+    }
+    var cancBtn = (dl !== null && dl < 0) ? '<button class="mini-btn canc" data-cancel="' + c.id + '">🚫 Cancel</button>' : '';
     return '<div class="card ' + leftClass(dl) + '"><div class="top"><div><div class="svc">' + esc(c.name) + '</div><div class="sub">' + esc(c.service) + (c.plan ? ' · ' + esc(c.plan) : '') + '</div></div>' + badge(dl) + '</div>' +
       '<div class="meta">' +
       (c.whatsapp ? 'WhatsApp: <b>' + esc(c.whatsapp) + '</b><br>' : '') +
@@ -318,7 +333,7 @@ function renderCustomers() {
       (c.profile && acct ? 'Profile: <b>' + esc(c.profile) + '</b><br>' : '') +
       'Start: <b>' + fmtDate(c.start) + '</b> · End: <b>' + fmtDate(c.end) + '</b><br>' +
       'Paid: <b>' + num(c.amount) + '</b>' + (c.payment ? ' · ' + esc(c.payment) : '') + '</div>' +
-      '<div class="actions">' + waBtn + '<button class="mini-btn ext" data-extend="' + c.id + '">⏳ Extend</button><button class="mini-btn" data-edit="customer:' + c.id + '">✏️ Edit</button><button class="mini-btn del" data-del="customer:' + c.id + '">Delete</button></div></div>';
+      '<div class="actions">' + waBtn + '<button class="mini-btn ext" data-extend="' + c.id + '">⏳ Extend</button>' + cancBtn + '<button class="mini-btn" data-edit="customer:' + c.id + '">✏️ Edit</button><button class="mini-btn del" data-del="customer:' + c.id + '">Delete</button></div></div>';
   }).join('');
 }
 
@@ -374,6 +389,10 @@ document.addEventListener('click', function (e) {
   if (rv) { var key = rv.getAttribute('data-reveal'); revealed[key] = !revealed[key]; renderAll(); return; }
   var ex = e.target.closest('[data-extend]');
   if (ex) { openSheet('extend', ex.getAttribute('data-extend')); return; }
+  var cx = e.target.closest('[data-cancel]');
+  if (cx) { cancelSubscription(cx.getAttribute('data-cancel')); return; }
+  var ra = e.target.closest('[data-reactivate]');
+  if (ra) { reactivateSubscription(ra.getAttribute('data-reactivate')); return; }
   var ed = e.target.closest('[data-edit]');
   if (ed) { var p1 = ed.getAttribute('data-edit').split(':'); openSheet(p1[0], p1[1]); return; }
   var del = e.target.closest('[data-del]');
@@ -392,6 +411,17 @@ function deleteRecord(kind, id) {
   DB[map[kind]] = arr.filter(function (x) { return x.id !== id; });
   if (kind === 'account') { /* keep auto spend as history */ }
   save(); renderAll(); toast('Deleted');
+}
+
+function cancelSubscription(id) {
+  var c = getRec('customer', id); if (!c || !c.id) return;
+  if (!confirm('Cancel ' + c.name + "'s subscription?\n\nThe profile slot will be freed for a new customer. The record and its sales history stay saved, and you can reactivate it anytime.")) return;
+  DB.customers = DB.customers.map(function (x) { if (x.id === id) { x.cancelled = true; x.cancelledOn = todayStr(); } return x; });
+  save(); renderAll(); toast('Subscription cancelled — slot freed');
+}
+function reactivateSubscription(id) {
+  DB.customers = DB.customers.map(function (x) { if (x.id === id) { delete x.cancelled; delete x.cancelledOn; } return x; });
+  save(); renderAll(); toast('Subscription reactivated');
 }
 
 /* ---------- form sheet ---------- */
@@ -583,6 +613,8 @@ $('sheet-form').addEventListener('submit', function (e) {
   } else if (kind === 'customer') {
     var recC = { id: id || uid(), name: g('name'), whatsapp: g('whatsapp'), service: g('service'), plan: g('plan'), accountId: g('accountId'), profile: g('profile'), start: g('start'), end: g('end'), amount: gn('amount'), payment: g('payment') };
     if (id) {
+      var oldC = getRec('customer', id);
+      if (oldC && oldC.cancelled) { recC.cancelled = true; recC.cancelledOn = oldC.cancelledOn; }
       DB.customers = DB.customers.map(function (x) { return x.id === id ? recC : x; });
       var sl = DB.sales.find(function (s) { return s.autoFrom === id; });
       if (sl) { sl.amount = recC.amount; sl.date = recC.start || sl.date; sl.customer = recC.name; sl.product = recC.service; sl.plan = recC.plan; sl.payment = recC.payment; }
